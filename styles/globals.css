@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
+    Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
+  /* Remove any dark mode overrides */
+  color: #1f2937;
+  background: #f3f4f6;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Remove dark mode styles that are causing issues */
+@media (prefers-color-scheme: dark) {
+  html {
+    color-scheme: light; /* Force light mode */
+  }
+  body {
+    color: #1f2937; /* Dark text */
+    background: #f3f4f6; /* Light background */
+  }
+}
