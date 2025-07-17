@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-contract SlitherMatch {
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract SlitherMatch is ReentrancyGuard, Ownable {
     uint256 public lobbyCounter;
     uint256 public entryFee;
-    address public owner;
+    IERC20 public immutable usdcToken;
+    
+    // Base mainnet USDC: 0x833589fcd6edb6e08f4c7c32d4f71b54bda02913
+    // Base sepolia USDC: 0x036CbD53842c5426634e7929541eC2318f3dCF7e
 
     enum LobbyState { Waiting, Active, Completed, Refundable }
 
@@ -35,14 +42,9 @@ contract SlitherMatch {
     event GameEnded(uint256 indexed lobbyId, address indexed winner, uint256 payout);
     event RefundIssued(uint256 indexed lobbyId, address indexed player, uint256 amount);
 
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Not authorized");
-        _;
-    }
-
-    constructor(uint256 _entryFee) {
-        owner = msg.sender;
-        entryFee = _entryFee; // 0.001 ETH = 1e15 wei
+    constructor(uint256 _entryFee, address _usdcToken) Ownable(msg.sender) {
+        entryFee = _entryFee; // $1 in USDC (6 decimals) = 1000000
+        usdcToken = IERC20(_usdcToken);
         lobbyCounter = 0;
     }
 
@@ -57,9 +59,11 @@ contract SlitherMatch {
         return lobbyCounter;
     }
 
-    function joinLobby(uint256 _lobbyId) external payable {
-        require(msg.value == entryFee, "Incorrect entry fee");
+    function joinLobby(uint256 _lobbyId) external nonReentrant {
         require(playerCurrentLobby[msg.sender] == 0, "Already in a lobby");
+        
+        // Transfer USDC from player
+        require(usdcToken.transferFrom(msg.sender, address(this), entryFee), "USDC transfer failed");
         
         // Create lobby if it doesn't exist
         if (_lobbyId == 0 || lobbies[_lobbyId].id == 0) {
@@ -77,7 +81,7 @@ contract SlitherMatch {
 
         lobby.players.push(msg.sender);
         lobby.playerData[msg.sender] = Player(msg.sender, 0, true, block.timestamp);
-        lobby.totalPot += msg.value;
+        lobby.totalPot += entryFee;
         playerCurrentLobby[msg.sender] = _lobbyId;
 
         emit PlayerJoined(_lobbyId, msg.sender);
@@ -100,7 +104,7 @@ contract SlitherMatch {
         emit LobbyActivated(_lobbyId, block.timestamp);
     }
 
-    function declareWinner(uint256 _lobbyId, address _winner) external onlyOwner {
+    function declareWinner(uint256 _lobbyId, address _winner) external onlyOwner nonReentrant {
         Lobby storage lobby = lobbies[_lobbyId];
         require(lobby.state == LobbyState.Active, "Game not active");
         require(lobby.playerData[_winner].wallet == _winner, "Winner not in lobby");
@@ -108,9 +112,9 @@ contract SlitherMatch {
         lobby.state = LobbyState.Completed;
         lobby.winner = _winner;
 
-        // Pay out winner
+        // Pay out winner in USDC
         uint256 payout = lobby.totalPot;
-        payable(_winner).transfer(payout);
+        require(usdcToken.transfer(_winner, payout), "USDC transfer failed");
 
         // Clear player lobby assignments
         for (uint i = 0; i < lobby.players.length; i++) {
@@ -127,7 +131,7 @@ contract SlitherMatch {
         lobby.state = LobbyState.Refundable;
     }
 
-    function refundIfUnstarted(uint256 _lobbyId, address _player) external {
+    function refundIfUnstarted(uint256 _lobbyId, address _player) external nonReentrant {
         Lobby storage lobby = lobbies[_lobbyId];
         require(lobby.state == LobbyState.Refundable, "Refunds not enabled");
         require(msg.sender == _player, "Can only refund own entry");
@@ -138,7 +142,8 @@ contract SlitherMatch {
 
         player.wallet = address(0); // prevent double refund
         playerCurrentLobby[_player] = 0;
-        payable(_player).transfer(entryFee);
+        
+        require(usdcToken.transfer(_player, entryFee), "USDC refund failed");
         
         emit RefundIssued(_lobbyId, _player, entryFee);
     }
@@ -188,7 +193,8 @@ contract SlitherMatch {
 
     // Emergency functions
     function emergencyWithdraw() external onlyOwner {
-        payable(owner).transfer(address(this).balance);
+        uint256 balance = usdcToken.balanceOf(address(this));
+        require(usdcToken.transfer(owner(), balance), "Emergency withdraw failed");
     }
 
     function updateEntryFee(uint256 _newFee) external onlyOwner {

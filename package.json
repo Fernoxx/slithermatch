@@ -9,7 +9,8 @@
     "deploy:sepolia": "npx hardhat run scripts/deploy.js --network baseSepolia",
     "deploy:mainnet": "npx hardhat run scripts/deploy.js --network baseMainnet",
     "compile": "npx hardhat compile",
-    "test": "npx hardhat test"
+    "test": "npx hardhat test",
+    "server": "node server/index.js"
   },
   "dependencies": {
     "@farcaster/miniapp-sdk": "^0.1.0",
@@ -21,15 +22,28 @@
     "react-dom": "^18.3.1",
     "tailwindcss": "^3.4.0",
     "viem": "^2.32.0",
-    "wagmi": "^2.15.7"
+    "wagmi": "^2.15.7",
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.7.5",
+    "axios": "^1.7.9",
+    "neynar-api": "^1.0.0",
+    "express": "^4.21.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.0",
+    "uuid": "^10.0.0",
+    "lucide-react": "^0.460.0",
+    "@headlessui/react": "^2.2.0",
+    "clsx": "^2.1.1"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^6.0.0",
     "@types/node": "^24.0.14",
-    "@types/react": "^19.1.8",
+    "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.0",
+    "@types/uuid": "^10.0.0",
+    "@types/express": "^5.0.0",
+    "@types/cors": "^2.8.17",
     "autoprefixer": "^10.4.0",
-    "dotenv": "^17.2.0",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.30",
     "hardhat": "^2.25.0",
